@@ -22,7 +22,6 @@ class QuranLearningApp extends StatelessWidget {
   }
 }
 
-// شاشة التنقل الرئيسية (تحتوي على التبويبات بالأسفل)
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
 
@@ -30,7 +29,7 @@ class MainTabScreen extends StatefulWidget {
   State<MainTabScreen> createState() => _MainTabScreenState();
 }
 
-class _MainTabScreenStateState extends State<MainTabScreen> {
+class _MainTabScreenState extends State<MainTabScreen> {
   int _currentIndex = 0;
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -64,7 +63,6 @@ class _MainTabScreenStateState extends State<MainTabScreen> {
   }
 }
 
-// 1. الشاشة الرئيسية وقائمة السور مع ميزة البحث
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -109,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'versesCount': '5 آيات',
       'verses': [
         'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-        'قُل_ أَعُوذُ بِرَبِّ الْفَلَقِ',
+        'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ',
         'مِن شَرِّ مَا خَلَقَ',
         'وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ',
         'وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ',
@@ -151,8 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
       'verses': [
         'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
         'إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ',
-        'وَرَأَيْتَ النَّاسَ يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا',
-        'فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُ ۚ إِنَّهُ كَانَ تَوَّابًا'
+        'Wَرَأَيْتَ النَّاسَ يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا',
+        'فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُ إِنَّهُ كَانَ تَوَّابًا'
       ]
     },
     {
@@ -164,9 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
         'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
         'قُلْ يَا أَيُّهَا الْكَافِرُونَ',
         'لَا أَعْبُدُ مَا تَعْبُدُونَ',
-        'وَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ',
-        'وَلَا أَنَا عَابِدٌ مَّا عَبَدتُّمْ',
-        'وَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ',
+        'Wَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ',
+        'Wَلَا أَنَا عَابِدٌ مَّا عَبَدتُّمْ',
+        'Wَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ',
         'لَكُمْ دِينُكُمْ وَلِيَ دِينِ'
       ]
     }
@@ -207,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            // بطاقة الحديث الشريف
             Card(
               color: Colors.amber.shade100,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -219,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'قال ﷺ: "خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ"',
+                        'قال النبي محمد صلى الله عليه وسلم: خيركم من تعلم القرآن وعلمه',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
                       ),
                     ),
@@ -228,7 +225,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 15),
-            // حقل البحث عن السور
             TextField(
               onChanged: _searchSurah,
               decoration: InputDecoration(
@@ -243,7 +239,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 15),
-            // قائمة السور المفلترة
             Expanded(
               child: _filteredSurahs.isEmpty
                   ? const Center(child: Text('لم يتم العثور على السورة'))
@@ -261,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text('${surah['id']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                             title: Text(surah['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            subtitle: Text('${surah['type']} • ${surah['versesCount']}'),
+                            subtitle: Text('${surah['type']} - ${surah['versesCount']}'),
                             trailing: const Icon(Icons.arrow_forward_ios, color: Colors.teal, size: 18),
                             onTap: () {
                               Navigator.push(
@@ -286,7 +281,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// 2. شاشة الحفظ والتعليم المتطورة مع عداد التكرار وحفظ الموضع
 class SurahStudyScreen extends StatefulWidget {
   final String surahName;
   final List<String> verses;
@@ -298,8 +292,8 @@ class SurahStudyScreen extends StatefulWidget {
 }
 
 class _SurahStudyScreenState extends State<SurahStudyScreen> {
-  Map<int, int> repeatCounters = {}; // لتتبع تكرار كل آية للحفظ
-  int lastReadVerse = -1; // لحفظ آخر آية وقف عندها المستخدم
+  Map<int, int> repeatCounters = {}; 
+  int lastReadVerse = -1; 
 
   @override
   Widget build(BuildContext context) {
@@ -308,3 +302,14 @@ class _SurahStudyScreenState extends State<SurahStudyScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('سورة ${widget.surahName}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.teal,
+        ),
+        body: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: widget.verses.length,
+          itemBuilder: (context, index) {
+            int currentCount = repeatCounters[index] ?? 0;
+            bool isLastRead = lastReadVerse == index;
+
+            return Card(
+              
