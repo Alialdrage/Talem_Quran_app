@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.audio.PlaybackStatus
 import com.example.audio.PlayerState
 import com.example.audio.QuranAudioPlayer
+import com.example.audio.QuranSpellingPronunciationManager
 import com.example.data.datasource.LessonsDataProvider
 import com.example.data.datasource.QuranDataProvider
 import com.example.data.local.AppDatabase
 import com.example.data.local.UserProgress
+import com.example.data.model.Ayah
 import com.example.data.model.Lesson
 import com.example.data.model.QuizDataProvider
 import com.example.data.model.QuizQuestion
@@ -18,6 +20,7 @@ import com.example.data.model.Surah
 import com.example.data.model.TafsirBook
 import com.example.data.model.TajweedRule
 import com.example.data.repository.ProgressRepository
+import com.example.ui.components.MushafDisplayMode
 import com.example.voice.RecordState
 import com.example.voice.VoiceRecorder
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +31,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class AppTab(val title: String) {
-    PLAYER("المصحف المعلم"),
-    SURAHS("فهرس السور"),
+    SURAHS("قائمة السور"),
+    PLAYER("شاشة القراءة"),
     LESSONS("دروس التهجي"),
     PRACTICE("تدريب التلاوة"),
     QUIZ("اختبر قراءتك"),
@@ -37,7 +40,7 @@ enum class AppTab(val title: String) {
 }
 
 data class UiState(
-    val currentTab: AppTab = AppTab.PLAYER,
+    val currentTab: AppTab = AppTab.SURAHS,
     val selectedSurah: Surah = QuranDataProvider.surahs.first(),
     val selectedReciter: Reciter = Reciter.HUSARY,
     val selectedLesson: Lesson = LessonsDataProvider.lessons.first(),
@@ -65,7 +68,15 @@ data class UiState(
     val practiceLiveElapsedMs: Long = 0L,
     val practiceUserPlaybackPosMs: Long = 0L,
     val practiceAmplitudes: List<Float> = emptyList(),
-    val isPlayingPracticeSheikh: Boolean = false
+    val isPlayingPracticeSheikh: Boolean = false,
+    // Interactive Mushaf State
+    val mushafDisplayMode: MushafDisplayMode = MushafDisplayMode.CONTINUOUS_PAGE,
+    val selectedInteractiveAyah: Ayah? = null,
+    val bookmarkedSurahId: String? = "001",
+    val bookmarkedAyahNumber: Int? = 1,
+    val surahFilterQuery: String = "",
+    val isAyahAudioPlaying: Boolean = false,
+    val isAyahLooping: Boolean = false
 )
 
 class QuranViewModel(application: Application) : AndroidViewModel(application) {
@@ -73,12 +84,14 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: ProgressRepository
     val player: QuranAudioPlayer
     val recorder: VoiceRecorder
+    val spellingPronounceManager: QuranSpellingPronunciationManager
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     val playerState: StateFlow<PlayerState>
     val recordState: StateFlow<RecordState>
+    val currentlyPronouncingText: StateFlow<String?>
 
     val userProgress: StateFlow<UserProgress?>
 
@@ -87,9 +100,11 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
         repository = ProgressRepository(db.progressDao())
         player = QuranAudioPlayer(application)
         recorder = VoiceRecorder(application)
+        spellingPronounceManager = QuranSpellingPronunciationManager(application)
 
         playerState = player.playerState
         recordState = recorder.recordState
+        currentlyPronouncingText = spellingPronounceManager.currentlyPronouncingText
 
         userProgress = repository.progress.stateIn(
             scope = viewModelScope,
@@ -101,7 +116,13 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
             repository.progress.collect { progress ->
                 if (progress != null) {
                     val isFav = progress.favoriteSurahs.split(",").contains(_uiState.value.selectedSurah.id)
-                    _uiState.value = _uiState.value.copy(isFavoriteSurah = isFav)
+                    val bookmarkedSurah = progress.lastSurahId.ifBlank { "001" }
+                    val bookmarkedAyah = if (progress.lastAyahIndex > 0) progress.lastAyahIndex else 1
+                    _uiState.value = _uiState.value.copy(
+                        isFavoriteSurah = isFav,
+                        bookmarkedSurahId = bookmarkedSurah,
+                        bookmarkedAyahNumber = bookmarkedAyah
+                    )
                 }
             }
         }
@@ -449,9 +470,86 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
         stopUserRecording()
     }
 
+    fun pronounceSpelling(text: String) {
+        spellingPronounceManager.pronounce(text)
+    }
+
+    fun pronounceSpellingSequence(steps: List<String>) {
+        spellingPronounceManager.pronounceSequence(steps)
+    }
+
+    fun stopSpellingPronunciation() {
+        spellingPronounceManager.stop()
+    }
+
+    // ==========================================
+    // المصحف التفاعلي (Interactive Mushaf Actions)
+    // ==========================================
+
+    fun setMushafDisplayMode(mode: MushafDisplayMode) {
+        _uiState.value = _uiState.value.copy(mushafDisplayMode = mode)
+    }
+
+    fun selectInteractiveAyah(ayah: Ayah?) {
+        _uiState.value = _uiState.value.copy(selectedInteractiveAyah = ayah)
+    }
+
+    fun playAyahRecitation(ayah: Ayah) {
+        recorder.stopPlayback()
+        val surah = _uiState.value.selectedSurah
+        val reciter = _uiState.value.selectedReciter
+        val url = QuranDataProvider.getAyahAudioUrl(surah.number, ayah.numberInSurah, reciter)
+        _uiState.value = _uiState.value.copy(
+            activeAyahHighlight = ayah.numberInSurah,
+            isAyahAudioPlaying = true
+        )
+        player.playUrl(url)
+    }
+
+    fun pauseAyahRecitation() {
+        player.pause()
+        _uiState.value = _uiState.value.copy(isAyahAudioPlaying = false)
+    }
+
+    fun toggleAyahLooping() {
+        val nextLoop = !_uiState.value.isAyahLooping
+        _uiState.value = _uiState.value.copy(isAyahLooping = nextLoop)
+        player.toggleRepeat()
+    }
+
+    fun bookmarkAyah(surahId: String, ayahNumber: Int) {
+        _uiState.value = _uiState.value.copy(
+            bookmarkedSurahId = surahId,
+            bookmarkedAyahNumber = ayahNumber
+        )
+        viewModelScope.launch {
+            val current = userProgress.value ?: UserProgress()
+            val updated = current.copy(lastSurahId = surahId, lastAyahIndex = ayahNumber)
+            repository.saveProgress(updated)
+        }
+    }
+
+    fun jumpToBookmarkedAyah() {
+        val targetSurahId = _uiState.value.bookmarkedSurahId ?: return
+        val targetAyahNum = _uiState.value.bookmarkedAyahNumber ?: 1
+        val foundSurah = QuranDataProvider.surahs.find { it.id == targetSurahId } ?: return
+        val foundAyah = foundSurah.ayahs.find { it.numberInSurah == targetAyahNum } ?: foundSurah.ayahs.firstOrNull()
+
+        selectSurah(foundSurah)
+        _uiState.value = _uiState.value.copy(
+            activeAyahHighlight = targetAyahNum,
+            selectedInteractiveAyah = foundAyah
+        )
+    }
+
+    fun setSurahFilterQuery(query: String) {
+        _uiState.value = _uiState.value.copy(surahFilterQuery = query)
+    }
+
     override fun onCleared() {
         super.onCleared()
         player.release()
         recorder.release()
+        spellingPronounceManager.release()
     }
 }

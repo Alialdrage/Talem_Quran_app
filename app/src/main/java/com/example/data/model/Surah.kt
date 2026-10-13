@@ -37,6 +37,7 @@ enum class TafsirBook(
     val author: String
 ) {
     AL_MIZAN("al_mizan", "الميزان في تفسير القرآن", "تفسير الميزان", "العلامة السيد محمد حسين الطباطبائي"),
+    AL_TIBYAN("al_tibyan", "التبيان في تفسير القرآن (البيان)", "تفسير التبيان (الطوسي)", "شيخ الطائفة أبو جعفر محمد بن الحسن الطوسي"),
     MAJMA_AL_BAYAN("majma_al_bayan", "مجمع البيان في تفسير القرآن", "مجمع البيان", "أمين الإسلام الشيخ الطبرسي"),
     AL_AMTHAL("al_amthal", "تفسير الأمثل في تفسير كتاب الله المنزل", "تفسير الأمثل", "الشيخ ناصر مكارم الشيرازي"),
     MUYASSAR("muyassar", "التفسير الميسر", "التفسير الميسر", "نخبة من العلماء")
@@ -54,6 +55,7 @@ data class Ayah(
     val tafsirAlAmthal: String = "",
     val tafsirMajmaAlBayan: String = "",
     val tafsirAlMizan: String = "",
+    val tafsirAlTibyan: String = "",
     val englishTranslation: String = ""
 )
 
@@ -69,7 +71,8 @@ data class Surah(
     val ayahs: List<Ayah>,
     val educationalNotes: String = "",
     val majmaAlBayanOverview: String = "",
-    val alMizanOverview: String = ""
+    val alMizanOverview: String = "",
+    val alTibyanOverview: String = ""
 )
 
 enum class Reciter(

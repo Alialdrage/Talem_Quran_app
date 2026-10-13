@@ -244,11 +244,12 @@ class ExampleUnitTest {
     val durationStr = com.example.ui.components.formatDuration(125_000)
     assertEquals("02:05", durationStr)
 
-    // Verify all 4 available Tafsir books exist with titles and authors
+    // Verify all 5 available Tafsir books exist with titles and authors (including Al-Tibyan by Sheikh Al-Tusi)
     val books = com.example.data.model.TafsirBook.values()
-    assertEquals(4, books.size)
+    assertEquals(5, books.size)
     val bookIds = books.map { it.id }.toSet()
     assertTrue(bookIds.contains("al_mizan"))
+    assertTrue(bookIds.contains("al_tibyan"))
     assertTrue(bookIds.contains("majma_al_bayan"))
     assertTrue(bookIds.contains("al_amthal"))
     assertTrue(bookIds.contains("muyassar"))
@@ -269,5 +270,29 @@ class ExampleUnitTest {
     assertTrue(dhikrText.contains("اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَآلِ مُحَمَّدٍ"))
     assertTrue(dhikrText.contains("وَعَجِّلْ لِوَلِيِّكَ الْفَرَجَ"))
     assertTrue(dhikrText.contains("وَالْعَافِيَةَ وَالنَّصْرَ"))
+  }
+
+  @Test
+  fun testInteractiveMushafFeatures() {
+    // Verify MushafDisplayMode modes
+    val modes = com.example.ui.components.MushafDisplayMode.values()
+    assertEquals(2, modes.size)
+    assertTrue(modes.any { it == com.example.ui.components.MushafDisplayMode.CONTINUOUS_PAGE })
+    assertTrue(modes.any { it == com.example.ui.components.MushafDisplayMode.DETAILED_CARDS })
+
+    // Verify UiState default mushaf mode is CONTINUOUS_PAGE
+    val state = com.example.ui.UiState()
+    assertEquals(com.example.ui.components.MushafDisplayMode.CONTINUOUS_PAGE, state.mushafDisplayMode)
+    assertNull(state.selectedInteractiveAyah)
+    assertEquals("001", state.bookmarkedSurahId)
+    assertEquals(1, state.bookmarkedAyahNumber)
+    assertEquals("", state.surahFilterQuery)
+
+    // Verify Al-Tibyan tafsir is present in Al-Fatihah
+    val fatiha = com.example.data.datasource.QuranDataProvider.surahs.first { it.id == "001" }
+    assertTrue(fatiha.alTibyanOverview.contains("التبيان"))
+    fatiha.ayahs.forEach { ayah ->
+      assertTrue("Ayah ${ayah.numberInSurah} should have Al-Tibyan tafsir", ayah.tafsirAlTibyan.isNotBlank())
+    }
   }
 }

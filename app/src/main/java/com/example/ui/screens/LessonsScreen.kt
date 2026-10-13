@@ -4,11 +4,15 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,9 +33,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Spellcheck
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,6 +53,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,6 +94,9 @@ fun LessonsScreen(
     onPrevSpellingStep: () -> Unit,
     onMarkCompleted: (Int) -> Unit,
     onToggleNightMode: () -> Unit = {},
+    onPronounceText: (String) -> Unit = {},
+    onPronounceSequence: (List<String>) -> Unit = {},
+    currentlyPronouncingText: String? = null,
     modifier: Modifier = Modifier
 ) {
     val currentLesson = uiState.selectedLesson
@@ -312,9 +327,21 @@ fun LessonsScreen(
                         totalSteps = currentLesson.spellingSteps.size,
                         isNightMode = uiState.isNightMode,
                         onNext = onNextSpellingStep,
-                        onPrev = onPrevSpellingStep
+                        onPrev = onPrevSpellingStep,
+                        onPronounce = onPronounceText,
+                        onPronounceSequence = onPronounceSequence,
+                        currentlyPronouncing = currentlyPronouncingText
                     )
                 }
+            }
+
+            // لوحة مخارج الحروف القرآنية والحركات التفاعلية (انقر لسماع الحرف)
+            item {
+                InteractiveQuranPhonicsBoard(
+                    onPronounce = onPronounceText,
+                    currentlyPronouncing = currentlyPronouncingText,
+                    isNightMode = uiState.isNightMode
+                )
             }
 
             // Golden Rule Card
@@ -366,7 +393,7 @@ fun LessonsScreen(
             if (currentLesson.comparisons.isNotEmpty()) {
                 item {
                     Text(
-                        text = "تمييز الحروف المتقاربة في النطق والمخارج:",
+                        text = "تمييز الحروف المتقاربة في النطق والمخارج (اضغط للاستماع 🔊):",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -375,7 +402,11 @@ fun LessonsScreen(
                 }
 
                 items(currentLesson.comparisons) { comp ->
-                    LetterComparisonCard(comp = comp)
+                    LetterComparisonCard(
+                        comp = comp,
+                        onPronounce = onPronounceText,
+                        currentlyPronouncing = currentlyPronouncingText
+                    )
                 }
             }
 
@@ -383,7 +414,7 @@ fun LessonsScreen(
             if (currentLesson.exampleWords.isNotEmpty()) {
                 item {
                     Text(
-                        text = "أمثلة قرانية للتطبيق:",
+                        text = "أمثلة قرآنية للتطبيق والتهجي (اضغط لسماع الكلمة 🔊):",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -395,6 +426,7 @@ fun LessonsScreen(
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.2f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -402,34 +434,51 @@ fun LessonsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             currentLesson.exampleWords.forEach { word ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                            RoundedCornerShape(10.dp)
-                                        )
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                val isPronouncing = currentlyPronouncingText == word.word
+                                Surface(
+                                    onClick = { onPronounceText(word.word) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isPronouncing) GoldPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isPronouncing) GoldPrimary else Color.Transparent
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().testTag("word_example_${word.word}")
                                 ) {
-                                    Text(
-                                        text = word.word,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (uiState.isNightMode) EmeraldLight else EmeraldDark
-                                    )
-                                    Text(
-                                        text = word.breakdown,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = word.meaningOrTip,
-                                        fontSize = 12.sp,
-                                        color = EmeraldPrimary
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.VolumeUp,
+                                                contentDescription = "استماع",
+                                                tint = if (isPronouncing) GoldDark else EmeraldPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = word.word,
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (uiState.isNightMode) EmeraldLight else EmeraldDark
+                                            )
+                                        }
+                                        Text(
+                                            text = word.breakdown,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = word.meaningOrTip,
+                                            fontSize = 12.sp,
+                                            color = EmeraldPrimary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -452,13 +501,16 @@ fun SpellingTrainerCard(
     isNightMode: Boolean = false,
     onNext: () -> Unit,
     onPrev: () -> Unit,
+    onPronounce: (String) -> Unit = {},
+    onPronounceSequence: (List<String>) -> Unit = {},
+    currentlyPronouncing: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.3f)),
+        border = BorderStroke(1.2.dp, EmeraldPrimary.copy(alpha = 0.35f)),
         modifier = modifier
             .fillMaxWidth()
             .testTag("spelling_trainer_card")
@@ -482,7 +534,7 @@ fun SpellingTrainerCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "التدريب العملي: التهجي الصوتي",
+                        text = "التدريب العملي: التهجي الصوتي التفاعلي",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isNightMode) EmeraldLight else EmeraldPrimary
@@ -494,6 +546,36 @@ fun SpellingTrainerCard(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Subtitle guidance
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = EmeraldPrimary.copy(alpha = 0.1f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Hearing,
+                        contentDescription = null,
+                        tint = EmeraldPrimary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "اضغط على أي مقطع أو كلمة لسماع نطقها من القارئ المعلم 🔊",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldDark,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -508,7 +590,7 @@ fun SpellingTrainerCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Breakdown Row
+                    // Breakdown Row: part1 + part2 = combined
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -516,18 +598,37 @@ fun SpellingTrainerCard(
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
                     ) {
+                        // Part 1
+                        val isP1Pronouncing = currentlyPronouncing == targetStep.part1
                         Surface(
+                            onClick = { onPronounce(targetStep.part1) },
                             shape = RoundedCornerShape(12.dp),
-                            color = EmeraldPrimary.copy(alpha = 0.12f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary)
+                            color = if (isP1Pronouncing) GoldPrimary.copy(alpha = 0.25f) else EmeraldPrimary.copy(alpha = 0.12f),
+                            border = BorderStroke(
+                                if (isP1Pronouncing) 2.dp else 1.dp,
+                                if (isP1Pronouncing) GoldDark else EmeraldPrimary
+                            ),
+                            shadowElevation = if (isP1Pronouncing) 3.dp else 1.dp,
+                            modifier = Modifier.testTag("btn_pronounce_part1")
                         ) {
-                            Text(
-                                text = targetStep.part1,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNightMode) EmeraldLight else EmeraldPrimary,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "نطق المقطع 1",
+                                    tint = if (isP1Pronouncing) GoldDark else EmeraldPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = targetStep.part1,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNightMode) EmeraldLight else EmeraldPrimary
+                                )
+                            }
                         }
 
                         Text(
@@ -535,21 +636,40 @@ fun SpellingTrainerCard(
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp)
                         )
 
+                        // Part 2
+                        val isP2Pronouncing = currentlyPronouncing == targetStep.part2
                         Surface(
+                            onClick = { onPronounce(targetStep.part2) },
                             shape = RoundedCornerShape(12.dp),
-                            color = EmeraldPrimary.copy(alpha = 0.12f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary)
+                            color = if (isP2Pronouncing) GoldPrimary.copy(alpha = 0.25f) else EmeraldPrimary.copy(alpha = 0.12f),
+                            border = BorderStroke(
+                                if (isP2Pronouncing) 2.dp else 1.dp,
+                                if (isP2Pronouncing) GoldDark else EmeraldPrimary
+                            ),
+                            shadowElevation = if (isP2Pronouncing) 3.dp else 1.dp,
+                            modifier = Modifier.testTag("btn_pronounce_part2")
                         ) {
-                            Text(
-                                text = targetStep.part2,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNightMode) EmeraldLight else EmeraldPrimary,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "نطق المقطع 2",
+                                    tint = if (isP2Pronouncing) GoldDark else EmeraldPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = targetStep.part2,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNightMode) EmeraldLight else EmeraldPrimary
+                                )
+                            }
                         }
 
                         Text(
@@ -557,42 +677,80 @@ fun SpellingTrainerCard(
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp)
                         )
 
+                        // Combined
+                        val isCombPronouncing = currentlyPronouncing == targetStep.combined
                         Surface(
+                            onClick = { onPronounce(targetStep.combined) },
                             shape = RoundedCornerShape(12.dp),
-                            color = GoldPrimary.copy(alpha = 0.15f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, GoldPrimary)
+                            color = if (isCombPronouncing) GoldPrimary.copy(alpha = 0.35f) else GoldPrimary.copy(alpha = 0.15f),
+                            border = BorderStroke(
+                                if (isCombPronouncing) 2.dp else 1.dp,
+                                if (isCombPronouncing) GoldDark else GoldPrimary
+                            ),
+                            shadowElevation = if (isCombPronouncing) 3.dp else 1.dp,
+                            modifier = Modifier.testTag("btn_pronounce_combined")
                         ) {
-                            Text(
-                                text = targetStep.combined,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNightMode) GoldLight else GoldDark,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "نطق المجموع",
+                                    tint = GoldDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = targetStep.combined,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNightMode) GoldLight else GoldDark
+                                )
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Full Word Result Box
+                    val isFullPronouncing = currentlyPronouncing == targetStep.fullWord
                     Surface(
+                        onClick = { onPronounce(targetStep.fullWord) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (isNightMode) DarkGreenSurface else Color(0xFFF9F5EC),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, if (isNightMode) GoldLight else GoldPrimary),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        color = if (isFullPronouncing) GoldPrimary.copy(alpha = 0.25f) else if (isNightMode) DarkGreenSurface else Color(0xFFF9F5EC),
+                        border = BorderStroke(
+                            if (isFullPronouncing) 2.5.dp else 2.dp,
+                            if (isFullPronouncing) GoldDark else if (isNightMode) GoldLight else GoldPrimary
+                        ),
+                        shadowElevation = if (isFullPronouncing) 4.dp else 1.dp,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .testTag("btn_pronounce_fullword")
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(horizontal = 28.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = "الكلمة كاملة:",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "نطق الكلمة كاملة",
+                                    tint = GoldDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "الكلمة كاملة (انقر للاستماع):",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GoldDark
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = targetStep.fullWord,
                                 fontSize = 36.sp,
@@ -600,6 +758,34 @@ fun SpellingTrainerCard(
                                 color = if (isNightMode) MaterialTheme.colorScheme.onSurface else Color(0xFF1E2820)
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Sequence pronunciation button
+                    Button(
+                        onClick = {
+                            onPronounceSequence(
+                                listOf(targetStep.part1, targetStep.part2, targetStep.combined, targetStep.fullWord)
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                        modifier = Modifier.testTag("btn_play_spelling_sequence")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "التهجي الصوتي المتسلسل",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "استمع للتهجي المتسلسل بالترتيب 🔊",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
 
                     if (targetStep.pronunciationTip.isNotBlank()) {
@@ -644,11 +830,167 @@ fun SpellingTrainerCard(
     }
 }
 
+/**
+ * لوحة مخارج الحروف القرآنية والحركات التفاعلية
+ * تتيح للمستخدم النقر على أي حرف بأي حركة لسماع نطقه الصحيح من القارئ المعلم
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LetterComparisonCard(comp: LetterComparison) {
+fun InteractiveQuranPhonicsBoard(
+    onPronounce: (String) -> Unit,
+    currentlyPronouncing: String? = null,
+    isNightMode: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val harakatList = listOf(
+        Pair("الفتحة ( َ )", "\u064E"),
+        Pair("الكسرة ( ِ )", "\u0650"),
+        Pair("الضمة ( ُ )", "\u064F"),
+        Pair("السكون ( ْ )", "\u0652"),
+        Pair("تنوين فتح ( ً )", "\u064B"),
+        Pair("تنوين ضم ( ٌ )", "\u064C"),
+        Pair("تنوين كسر ( ٍ )", "\u064D")
+    )
+
+    var selectedHarakahIdx by remember { mutableStateOf(0) }
+    val currentDiacritic = harakatList[selectedHarakahIdx].second
+
+    val arabicLetters = listOf(
+        "أ", "ب", "ت", "ث", "ج", "ح", "خ",
+        "د", "ذ", "ر", "ز", "س", "ش", "ص",
+        "ض", "ط", "ظ", "ع", "غ", "ف", "ق",
+        "ك", "ل", "م", "ن", "هـ", "و", "ي"
+    )
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.2.dp, GoldPrimary.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("interactive_phonics_board")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.RecordVoiceOver,
+                    contentDescription = null,
+                    tint = GoldDark,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "لوحة نطق الحروف والحركات التفاعلية 🎙️",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldDark
+                    )
+                    Text(
+                        text = "اضغط على أي حرف لسماع نطقه ومخرجه بصوت القارئ المعلم",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Harakat selection chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(harakatList.size) { idx ->
+                    val isSelected = selectedHarakahIdx == idx
+                    Surface(
+                        onClick = { selectedHarakahIdx = idx },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) EmeraldDark else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.testTag("chip_harakah_$idx")
+                    ) {
+                        Text(
+                            text = harakatList[idx].first,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Grid of Letters with selected Harakah
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                arabicLetters.forEach { letter ->
+                    val letterWithHarakah = if (letter == "هـ") "ه$currentDiacritic" else "$letter$currentDiacritic"
+                    val isPronouncing = currentlyPronouncing == letterWithHarakah
+
+                    Surface(
+                        onClick = { onPronounce(letterWithHarakah) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = when {
+                            isPronouncing -> GoldPrimary
+                            isNightMode -> DarkGreenSurface
+                            else -> Color(0xFFFBF8F2)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (isPronouncing) GoldDark else EmeraldPrimary.copy(alpha = 0.25f)
+                        ),
+                        shadowElevation = if (isPronouncing) 4.dp else 1.dp,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .testTag("phonics_letter_${letter}")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = letterWithHarakah,
+                                fontSize = 21.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when {
+                                    isPronouncing -> Color.White
+                                    isNightMode -> EmeraldLight
+                                    else -> EmeraldDark
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LetterComparisonCard(
+    comp: LetterComparison,
+    onPronounce: (String) -> Unit = {},
+    currentlyPronouncing: String? = null
+) {
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.2f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -658,28 +1000,56 @@ fun LetterComparisonCard(comp: LetterComparison) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Light letter
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            val isLightPronouncing = currentlyPronouncing == comp.letterLight || currentlyPronouncing == comp.lightExample
+            Surface(
+                onClick = { onPronounce(comp.letterLight) },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isLightPronouncing) EmeraldPrimary.copy(alpha = 0.15f) else Color.Transparent,
+                border = BorderStroke(1.dp, if (isLightPronouncing) EmeraldPrimary else Color.Transparent),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("btn_pronounce_light_${comp.letterLight}")
             ) {
-                Text(
-                    text = comp.letterLight,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EmeraldPrimary
-                )
-                Text(
-                    text = "مثال: (${comp.lightExample})",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = comp.lightDesc,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeUp,
+                            contentDescription = "استماع للحرف المرقق",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = comp.letterLight,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimary
+                        )
+                    }
+                    Surface(
+                        onClick = { onPronounce(comp.lightExample) },
+                        shape = RoundedCornerShape(6.dp),
+                        color = EmeraldPrimary.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "مثال: (${comp.lightExample}) 🔊",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldDark,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = comp.lightDesc,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             Icon(
@@ -687,34 +1057,63 @@ fun LetterComparisonCard(comp: LetterComparison) {
                 contentDescription = "مقارنة",
                 tint = GoldPrimary,
                 modifier = Modifier
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = 6.dp)
                     .size(24.dp)
             )
 
             // Heavy letter
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            val isHeavyPronouncing = currentlyPronouncing == comp.letterHeavy || currentlyPronouncing == comp.heavyExample
+            Surface(
+                onClick = { onPronounce(comp.letterHeavy) },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isHeavyPronouncing) GoldPrimary.copy(alpha = 0.2f) else Color.Transparent,
+                border = BorderStroke(1.dp, if (isHeavyPronouncing) GoldDark else Color.Transparent),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("btn_pronounce_heavy_${comp.letterHeavy}")
             ) {
-                Text(
-                    text = comp.letterHeavy,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GoldDark
-                )
-                Text(
-                    text = "مثال: (${comp.heavyExample})",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = comp.heavyDesc,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeUp,
+                            contentDescription = "استماع للحرف المفخم",
+                            tint = GoldDark,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = comp.letterHeavy,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldDark
+                        )
+                    }
+                    Surface(
+                        onClick = { onPronounce(comp.heavyExample) },
+                        shape = RoundedCornerShape(6.dp),
+                        color = GoldPrimary.copy(alpha = 0.12f),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "مثال: (${comp.heavyExample}) 🔊",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldDark,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = comp.heavyDesc,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
+

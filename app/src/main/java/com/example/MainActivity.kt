@@ -2,6 +2,7 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -74,12 +75,18 @@ fun QuranAppRoot(viewModel: QuranViewModel) {
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
     val recordState by viewModel.recordState.collectAsStateWithLifecycle()
     val userProgress by viewModel.userProgress.collectAsStateWithLifecycle()
+    val currentlyPronouncingText by viewModel.currentlyPronouncingText.collectAsStateWithLifecycle()
 
     val completedLessonIds = userProgress?.completedLessonsIds
         ?.split(",")
         ?.filter { it.isNotBlank() }
         ?.mapNotNull { it.toIntOrNull() }
         ?.toSet() ?: emptySet()
+
+    // Handle back button to return to Surahs list when on reading or other screens
+    BackHandler(enabled = uiState.currentTab != AppTab.SURAHS) {
+        viewModel.selectTab(AppTab.SURAHS)
+    }
 
     Scaffold(
         bottomBar = {
@@ -154,7 +161,14 @@ fun QuranAppRoot(viewModel: QuranViewModel) {
                     onResetFontSize = { viewModel.resetFontSize() },
                     onSetFontSize = { viewModel.setFontSize(it) },
                     onOpenSurahsList = { viewModel.selectTab(AppTab.SURAHS) },
-                    onSelectTafsirBook = { viewModel.selectTafsirBook(it) }
+                    onSelectTafsirBook = { viewModel.selectTafsirBook(it) },
+                    onModeChange = { viewModel.setMushafDisplayMode(it) },
+                    onSelectInteractiveAyah = { viewModel.selectInteractiveAyah(it) },
+                    onPlayAyahRecitation = { viewModel.playAyahRecitation(it) },
+                    onToggleAyahLoop = { viewModel.toggleAyahLooping() },
+                    onBookmarkAyah = { surahId, ayahNum -> viewModel.bookmarkAyah(surahId, ayahNum) },
+                    onJumpToBookmark = { viewModel.jumpToBookmarkedAyah() },
+                    onSearchQueryChange = { viewModel.setSurahFilterQuery(it) }
                 )
 
                 AppTab.SURAHS -> SurahsScreen(
@@ -179,7 +193,10 @@ fun QuranAppRoot(viewModel: QuranViewModel) {
                     onNextSpellingStep = { viewModel.nextSpellingStep() },
                     onPrevSpellingStep = { viewModel.prevSpellingStep() },
                     onMarkCompleted = { viewModel.markLessonCompleted(it) },
-                    onToggleNightMode = { viewModel.toggleNightMode() }
+                    onToggleNightMode = { viewModel.toggleNightMode() },
+                    onPronounceText = { viewModel.pronounceSpelling(it) },
+                    onPronounceSequence = { viewModel.pronounceSpellingSequence(it) },
+                    currentlyPronouncingText = currentlyPronouncingText
                 )
 
                 AppTab.PRACTICE -> PracticeScreen(

@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Add
@@ -85,12 +86,18 @@ import com.example.data.model.TajweedCategory
 import com.example.data.model.TajweedRule
 import com.example.ui.UiState
 import com.example.ui.components.AppHeader
+import com.example.ui.components.AyahQuickPickerDialog
+import com.example.ui.components.ContinuousMushafPageView
 import com.example.ui.components.CustomQuranSeekBar
+import com.example.ui.components.InteractiveAyahActionDialog
 import com.example.ui.components.InteractiveAyahText
+import com.example.ui.components.MushafDisplayMode
+import com.example.ui.components.MushafTopInteractiveBar
 import com.example.ui.components.QuranPlayerControls
 import com.example.ui.components.SalawatDhikrCard
 import com.example.ui.components.TajweedColorLegend
 import com.example.ui.components.TajweedRuleDetailDialog
+import com.example.ui.components.calculateAyahProgress
 import com.example.ui.theme.EmeraldDark
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldDark
@@ -122,9 +129,17 @@ fun PlayerScreen(
     onSetFontSize: (Int) -> Unit = {},
     onOpenSurahsList: () -> Unit = {},
     onSelectTafsirBook: (TafsirBook) -> Unit = {},
+    onModeChange: (MushafDisplayMode) -> Unit = {},
+    onSelectInteractiveAyah: (Ayah?) -> Unit = {},
+    onPlayAyahRecitation: (Ayah) -> Unit = {},
+    onToggleAyahLoop: () -> Unit = {},
+    onBookmarkAyah: (String, Int) -> Unit = { _, _ -> },
+    onJumpToBookmark: () -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showReciterDialog by remember { mutableStateOf(false) }
+    var showAyahPicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -133,9 +148,73 @@ fun PlayerScreen(
     ) {
         // App header
         AppHeader(
-            title = "المصحف المعلم والتجويد التفاعلي",
-            subtitle = "استمع للشيخ واضغط على أي كلمة أو مقطع لبيان حكم التجويد"
+            title = "شاشة القراءة — المصحف المبارك",
+            subtitle = "سورة ${uiState.selectedSurah.nameArabic} (${uiState.selectedSurah.revelationType} • ${uiState.selectedSurah.versesCount} آية)"
         )
+
+        // Reading Screen Navigation Header Bar with Back Button
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    onClick = onOpenSurahsList,
+                    shape = RoundedCornerShape(10.dp),
+                    color = EmeraldPrimary.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+                    modifier = Modifier.testTag("btn_back_to_surahs_list")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة لقائمة السور",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "فهرس السور",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimary
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "سورة ${uiState.selectedSurah.nameArabic}",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldPrimary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = GoldPrimary.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = "${uiState.selectedSurah.versesCount} آية",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldDark,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -335,28 +414,22 @@ fun PlayerScreen(
                 }
             }
 
-            // Surah Display Box (With interactive Tajweed word/segment chips!)
+            // شريط نمط المصحف التفاعلي (المصحف الشريف المتصل / بطاقات الآيات) والفاصل المرجعي والبحث
             item {
-                SurahInteractiveTajweedBox(
-                    surah = uiState.selectedSurah,
-                    isFavorite = uiState.isFavoriteSurah,
-                    isTajweedEnabled = uiState.isTajweedModeEnabled,
-                    selectedRule = uiState.selectedTajweedRule,
-                    fontSizeSp = uiState.quranFontSizeSp,
-                    onIncreaseFontSize = onIncreaseFontSize,
-                    onDecreaseFontSize = onDecreaseFontSize,
-                    onResetFontSize = onResetFontSize,
-                    onSetFontSize = onSetFontSize,
-                    onToggleFavorite = { onToggleFavorite(uiState.selectedSurah.id) },
-                    onSelectRule = onSelectTajweedRule,
-                    selectedTafsirBook = uiState.selectedTafsirBook,
-                    onSelectTafsirBook = onSelectTafsirBook,
-                    playerState = playerState,
-                    onSeek = onSeek
+                MushafTopInteractiveBar(
+                    currentMode = uiState.mushafDisplayMode,
+                    onModeChange = onModeChange,
+                    bookmarkedAyahNumber = uiState.bookmarkedAyahNumber,
+                    bookmarkedSurahId = uiState.bookmarkedSurahId,
+                    currentSurah = uiState.selectedSurah,
+                    onJumpToBookmark = onJumpToBookmark,
+                    onOpenAyahPicker = { showAyahPicker = true },
+                    searchQuery = uiState.surahFilterQuery,
+                    onSearchQueryChange = onSearchQueryChange
                 )
             }
 
-            // Audio Player Controls (أزرار التشغيل، الإيقاف المؤقت، الإطفاء، التكرار، شريط التمرير المخصص، وتبديل التفسير)
+            // Audio Player Controls (واجهة مشغل التلاوة الأنيقة مع الأزرار الواضحة والمؤشر البصري لتقدم الآية)
             item {
                 QuranPlayerControls(
                     playerState = playerState,
@@ -371,6 +444,46 @@ fun PlayerScreen(
                     selectedTafsirBook = uiState.selectedTafsirBook,
                     onSelectTafsirBook = onSelectTafsirBook
                 )
+            }
+
+            // Interactive Mushaf View: Either Continuous Mushaf Page or Detailed Cards
+            item {
+                if (uiState.mushafDisplayMode == MushafDisplayMode.CONTINUOUS_PAGE) {
+                    val activeRecitingAyahNumber = if (playerState.status == com.example.audio.PlaybackStatus.PLAYING || playerState.status == com.example.audio.PlaybackStatus.PAUSED) {
+                        calculateAyahProgress(uiState.selectedSurah, playerState.currentPositionMs, playerState.durationMs).ayahNumber
+                    } else null
+
+                    ContinuousMushafPageView(
+                        surah = uiState.selectedSurah,
+                        isNightMode = uiState.isNightMode,
+                        fontSizeSp = uiState.quranFontSizeSp,
+                        isTajweedEnabled = uiState.isTajweedModeEnabled,
+                        activeRecitingAyahNumber = activeRecitingAyahNumber,
+                        selectedInteractiveAyahNumber = uiState.selectedInteractiveAyah?.numberInSurah,
+                        bookmarkedAyahNumber = if (uiState.bookmarkedSurahId == uiState.selectedSurah.id) uiState.bookmarkedAyahNumber else null,
+                        searchQuery = uiState.surahFilterQuery,
+                        onSelectAyah = onSelectInteractiveAyah,
+                        onSelectTajweedRule = onSelectTajweedRule
+                    )
+                } else {
+                    SurahInteractiveTajweedBox(
+                        surah = uiState.selectedSurah,
+                        isFavorite = uiState.isFavoriteSurah,
+                        isTajweedEnabled = uiState.isTajweedModeEnabled,
+                        selectedRule = uiState.selectedTajweedRule,
+                        fontSizeSp = uiState.quranFontSizeSp,
+                        onIncreaseFontSize = onIncreaseFontSize,
+                        onDecreaseFontSize = onDecreaseFontSize,
+                        onResetFontSize = onResetFontSize,
+                        onSetFontSize = onSetFontSize,
+                        onToggleFavorite = { onToggleFavorite(uiState.selectedSurah.id) },
+                        onSelectRule = onSelectTajweedRule,
+                        selectedTafsirBook = uiState.selectedTafsirBook,
+                        onSelectTafsirBook = onSelectTafsirBook,
+                        playerState = playerState,
+                        onSeek = onSeek
+                    )
+                }
             }
 
             // Educational Notes Card
@@ -423,6 +536,38 @@ fun PlayerScreen(
             allSegmentRules = allForSegment,
             onSelectRule = onSelectTajweedRule,
             onDismiss = onDismissTajweedRule
+        )
+    }
+
+    // Interactive Ayah Action Dialog
+    uiState.selectedInteractiveAyah?.let { ayah ->
+        val isReciting = (playerState.status == com.example.audio.PlaybackStatus.PLAYING || playerState.status == com.example.audio.PlaybackStatus.PAUSED) &&
+                (calculateAyahProgress(uiState.selectedSurah, playerState.currentPositionMs, playerState.durationMs).ayahNumber == ayah.numberInSurah || uiState.activeAyahHighlight == ayah.numberInSurah)
+        InteractiveAyahActionDialog(
+            surah = uiState.selectedSurah,
+            ayah = ayah,
+            isNightMode = uiState.isNightMode,
+            isReciting = isReciting,
+            isLooping = uiState.isAyahLooping,
+            isBookmarked = uiState.bookmarkedSurahId == uiState.selectedSurah.id && uiState.bookmarkedAyahNumber == ayah.numberInSurah,
+            selectedTafsirBook = uiState.selectedTafsirBook,
+            onSelectTafsirBook = onSelectTafsirBook,
+            onPlayAyahAudio = { onPlayAyahRecitation(ayah) },
+            onToggleAyahLoop = onToggleAyahLoop,
+            onBookmarkAyah = { onBookmarkAyah(uiState.selectedSurah.id, ayah.numberInSurah) },
+            onSelectTajweedRule = onSelectTajweedRule,
+            onDismiss = { onSelectInteractiveAyah(null) }
+        )
+    }
+
+    // Ayah Quick Picker Dialog
+    if (showAyahPicker) {
+        AyahQuickPickerDialog(
+            surah = uiState.selectedSurah,
+            onSelectAyah = { ayah ->
+                onSelectInteractiveAyah(ayah)
+            },
+            onDismiss = { showAyahPicker = false }
         )
     }
 
@@ -573,6 +718,7 @@ fun SurahInteractiveTajweedBox(
     // Track expanded Tafsir state for verses in this surah
     var expandedTafsirAyahs by remember(surah.id) { mutableStateOf(setOf<Int>()) }
     var showAlMizanOverview by remember(surah.id) { mutableStateOf(false) }
+    var showAlTibyanOverview by remember(surah.id) { mutableStateOf(false) }
     var showMajmaAlBayanOverview by remember(surah.id) { mutableStateOf(false) }
 
     Card(
@@ -844,16 +990,17 @@ fun SurahInteractiveTajweedBox(
                     }
                 }
 
-                // اختيار كتاب التفسير المعتمد مع أيقونات التبديل السلس: الميزان، مجمع البيان، الأمثل، الميسر
+                // اختيار كتاب التفسير المعتمد مع أيقونات التبديل السلس: الميزان، التبيان، مجمع البيان، الأمثل، الميسر
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     TafsirBook.values().forEach { book ->
                         val isSelected = selectedTafsirBook == book
                         val bookIcon = when (book) {
                             TafsirBook.AL_MIZAN -> Icons.Default.Balance
+                            TafsirBook.AL_TIBYAN -> Icons.Default.School
                             TafsirBook.MAJMA_AL_BAYAN -> Icons.Default.AutoStories
                             TafsirBook.AL_AMTHAL -> Icons.Default.Lightbulb
                             TafsirBook.MUYASSAR -> Icons.Default.MenuBook
@@ -871,18 +1018,24 @@ fun SurahInteractiveTajweedBox(
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                            modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
                         ) {
                             Icon(
                                 imageVector = bookIcon,
                                 contentDescription = book.shortTitle,
                                 tint = if (isSelected) Color.White else EmeraldPrimary,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = book.shortTitle,
-                                fontSize = 11.sp,
+                                text = when (book) {
+                                    TafsirBook.AL_MIZAN -> "الميزان"
+                                    TafsirBook.AL_TIBYAN -> "التبيان"
+                                    TafsirBook.MAJMA_AL_BAYAN -> "مجمع البيان"
+                                    TafsirBook.AL_AMTHAL -> "الأمثل"
+                                    TafsirBook.MUYASSAR -> "الميسر"
+                                },
+                                fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (isSelected) Color.White else EmeraldDark
                             )
@@ -1034,30 +1187,135 @@ fun SurahInteractiveTajweedBox(
                         }
                     }
                 }
+
+                // بطاقة مقدمة ومقاصد السورة في «تفسير التبيان» لشيخ الطائفة الشيخ الطوسي (البيان)
+                val tibyanOverviewText = surah.alTibyanOverview.ifBlank {
+                    "في «التبيان في تفسير القرآن» لشيخ الطائفة أبي جعفر محمد بن الحسن الطوسي (قدس سره): سورة ${surah.nameArabic} ${surah.revelationType}، وتعد ${surah.versesCount} آيات؛ اشتملت على إيضاح معالم التوحيد الإلهي وبيان معاني الأحكام، والترغيب في صالح الأعمال والتحذير من سبل الغفلة والضلال."
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = EmeraldPrimary.copy(alpha = 0.06f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldDark.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("al_tibyan_overview_card")
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.School,
+                                    contentDescription = "تفسير التبيان",
+                                    tint = EmeraldDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "مقدمة ومقاصد السورة في «تفسير التبيان» (الشيخ الطوسي)",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldDark
+                                )
+                            }
+
+                            TextButton(
+                                onClick = { showAlTibyanOverview = !showAlTibyanOverview },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (showAlTibyanOverview) "إغلاق ▲" else "قراءة ▼",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldPrimary
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = showAlTibyanOverview,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Column(modifier = Modifier.padding(top = 8.dp)) {
+                                HorizontalDivider(
+                                    thickness = 0.8.dp,
+                                    color = EmeraldPrimary.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = tibyanOverviewText,
+                                    fontSize = 13.sp,
+                                    lineHeight = 22.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Verses list with Tajweed interactive segment text & chips
+            val activeRecitingAyahNumber = if (playerState != null && (playerState.status == com.example.audio.PlaybackStatus.PLAYING || playerState.status == com.example.audio.PlaybackStatus.PAUSED)) {
+                calculateAyahProgress(surah, playerState.currentPositionMs, playerState.durationMs).ayahNumber
+            } else null
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 surah.ayahs.forEach { ayah ->
                     val isTafsirVisible = expandedTafsirAyahs.contains(ayah.numberInSurah)
+                    val isCurrentReciting = activeRecitingAyahNumber == ayah.numberInSurah
 
                     Card(
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isTafsirVisible) EmeraldPrimary.copy(alpha = 0.5f) else Color(0xFFF0E5D4)
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isCurrentReciting) GoldPrimary.copy(alpha = 0.06f) else Color.White
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = if (isCurrentReciting) 2.dp else 1.dp,
+                            color = when {
+                                isCurrentReciting -> GoldPrimary
+                                isTafsirVisible -> EmeraldPrimary.copy(alpha = 0.5f)
+                                else -> Color(0xFFF0E5D4)
+                            }
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (isCurrentReciting) 4.dp else 1.dp
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("ayah_card_${ayah.numberInSurah}")
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(12.dp)
                         ) {
+                            if (isCurrentReciting) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = GoldPrimary.copy(alpha = 0.2f),
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "تُتلى الآن في المشغل 🔊",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldDark,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
                             // Ayah header with Interactive Ayah Text
                             Row(
                                 verticalAlignment = Alignment.Top,
@@ -1067,15 +1325,15 @@ fun SurahInteractiveTajweedBox(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .clip(CircleShape)
-                                        .background(EmeraldPrimary.copy(alpha = 0.1f))
-                                        .border(1.dp, GoldPrimary, CircleShape),
+                                        .background(if (isCurrentReciting) GoldPrimary.copy(alpha = 0.25f) else EmeraldPrimary.copy(alpha = 0.1f))
+                                        .border(1.dp, if (isCurrentReciting) GoldDark else GoldPrimary, CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "${ayah.numberInSurah}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = EmeraldPrimary
+                                        color = if (isCurrentReciting) GoldDark else EmeraldPrimary
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1186,6 +1444,7 @@ fun SurahInteractiveTajweedBox(
                                                 ) {
                                                     val selectedIcon = when (selectedTafsirBook) {
                                                         TafsirBook.AL_MIZAN -> Icons.Default.Balance
+                                                        TafsirBook.AL_TIBYAN -> Icons.Default.School
                                                         TafsirBook.MAJMA_AL_BAYAN -> Icons.Default.AutoStories
                                                         TafsirBook.AL_AMTHAL -> Icons.Default.Lightbulb
                                                         TafsirBook.MUYASSAR -> Icons.Default.MenuBook
@@ -1212,6 +1471,7 @@ fun SurahInteractiveTajweedBox(
                                                     val isBookSelected = selectedTafsirBook == book
                                                     val bookIcon = when (book) {
                                                         TafsirBook.AL_MIZAN -> Icons.Default.Balance
+                                                        TafsirBook.AL_TIBYAN -> Icons.Default.School
                                                         TafsirBook.MAJMA_AL_BAYAN -> Icons.Default.AutoStories
                                                         TafsirBook.AL_AMTHAL -> Icons.Default.Lightbulb
                                                         TafsirBook.MUYASSAR -> Icons.Default.MenuBook
@@ -1228,18 +1488,24 @@ fun SurahInteractiveTajweedBox(
                                                     ) {
                                                         Row(
                                                             verticalAlignment = Alignment.CenterVertically,
-                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp)
                                                         ) {
                                                             Icon(
-                                                                imageVector = bookIcon,
-                                                                contentDescription = book.shortTitle,
-                                                                tint = if (isBookSelected) Color.White else EmeraldPrimary,
-                                                                modifier = Modifier.size(12.dp)
+                                                                 imageVector = bookIcon,
+                                                                 contentDescription = book.shortTitle,
+                                                                 tint = if (isBookSelected) Color.White else EmeraldPrimary,
+                                                                 modifier = Modifier.size(12.dp)
                                                             )
                                                             Spacer(modifier = Modifier.width(3.dp))
                                                             Text(
-                                                                text = book.shortTitle,
-                                                                fontSize = 9.5.sp,
+                                                                text = when (book) {
+                                                                    TafsirBook.AL_MIZAN -> "الميزان"
+                                                                    TafsirBook.AL_TIBYAN -> "التبيان"
+                                                                    TafsirBook.MAJMA_AL_BAYAN -> "مجمع البيان"
+                                                                    TafsirBook.AL_AMTHAL -> "الأمثل"
+                                                                    TafsirBook.MUYASSAR -> "الميسر"
+                                                                },
+                                                                fontSize = 9.sp,
                                                                 fontWeight = FontWeight.Bold,
                                                                 color = if (isBookSelected) Color.White else EmeraldDark
                                                             )
@@ -1270,6 +1536,9 @@ fun SurahInteractiveTajweedBox(
                                         val currentTafsirText = when (selectedTafsirBook) {
                                             TafsirBook.AL_MIZAN -> ayah.tafsirAlMizan.ifBlank {
                                                 "في «الميزان في تفسير القرآن» للعلامة السيد محمد حسين الطباطبائي (قدس سره): بيان قرآني تحليلي رصين يفسر القرآن بالقرآن، مستنطقاً الآيات الكريمة في إيضاح معاني التوحيد والهداية الإلهية والحقائق الروحية والتشريعية في الآية (${ayah.numberInSurah})."
+                                            }
+                                            TafsirBook.AL_TIBYAN -> ayah.tafsirAlTibyan.ifBlank {
+                                                "في «التبيان في تفسير القرآن» لشيخ الطائفة أبي جعفر محمد بن الحسن الطوسي (قدس سره): بيان لغوي ونحوي وبلاغي محكم لمعاني الكلمات ودلالات الآية الكريمة، مع استعراض وجوه القراءات والأحكام الفقهية والمقاصد الإيمانية الواردة في الآية (${ayah.numberInSurah})."
                                             }
                                             TafsirBook.MAJMA_AL_BAYAN -> ayah.tafsirMajmaAlBayan.ifBlank { ayah.tafsirAlAmthal.ifBlank { ayah.tafsir } }
                                             TafsirBook.AL_AMTHAL -> ayah.tafsirAlAmthal.ifBlank { ayah.tafsir }

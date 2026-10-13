@@ -23,7 +23,10 @@ import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,6 +51,7 @@ import com.example.data.datasource.QuranDataProvider
 import com.example.data.local.UserProgress
 import com.example.data.model.Surah
 import com.example.ui.components.AppHeader
+import com.example.ui.components.DailyQuranReminderCard
 import com.example.ui.theme.EmeraldDark
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldDark
@@ -126,6 +130,11 @@ fun ProgressScreen(
                         }
                     }
                 }
+            }
+
+            // Daily Quran Reminder Card (التذكير اليومي بالورد القرآني وتدبر الآيات)
+            item {
+                DailyQuranReminderCard()
             }
 
             // Stats Cards Row

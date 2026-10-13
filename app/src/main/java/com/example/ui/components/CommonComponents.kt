@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -392,7 +393,7 @@ fun QuranPlayerControls(
                 PlaybackStatus.BUFFERING -> "جاري تحميل التلاوة العطرة..."
                 PlaybackStatus.PLAYING -> "جاري الاستماع والتلاوة الآن 🔊"
                 PlaybackStatus.PAUSED -> "التلاوة متوقفة مؤقتاً ⏸"
-                PlaybackStatus.STOPPED -> "تم الإطفاء والإيقاف ⏹"
+                PlaybackStatus.STOPPED -> "تم الإيقاف والإطفاء ⏹"
                 PlaybackStatus.COMPLETED -> "اكتملت التلاوة، بارك الله فيك ✨"
                 PlaybackStatus.ERROR -> playerState.errorMessage ?: "حدث خطأ في تشغيل الصوت"
             }
@@ -431,6 +432,16 @@ fun QuranPlayerControls(
                 }
             }
 
+            // مؤشر بصري يوضح تقدم التلاوة للآية الحالية
+            if (selectedSurah != null) {
+                AyahRecitationProgressIndicator(
+                    surah = selectedSurah,
+                    playerState = playerState,
+                    onSeek = onSeek,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+
             // Custom Quran Seekbar (شريط التمرير والتنقل السريع داخل السورة)
             CustomQuranSeekBar(
                 playerState = playerState,
@@ -439,120 +450,148 @@ fun QuranPlayerControls(
                 surahName = selectedSurah?.nameArabic ?: ""
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Main Control Buttons: تشغيل، إيقاف مؤقت، إطفاء، تكرار
+            // Main Control Buttons: تشغيل، إيقاف، تكرار (أزرار واضحة وأنيقة)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Repeat button (تكرار السورة 🔁)
+                // زر التكرار (Repeat button 🔁)
                 Surface(
                     onClick = onToggleRepeat,
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (playerState.isRepeating) GoldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (playerState.isRepeating) GoldPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = BorderStroke(
+                        1.2.dp,
+                        if (playerState.isRepeating) GoldDark else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    ),
+                    shadowElevation = if (playerState.isRepeating) 3.dp else 1.dp,
                     modifier = Modifier.testTag("btn_repeat")
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = if (playerState.isRepeating) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                            contentDescription = "تكرار",
+                            contentDescription = "تكرار التلاوة",
                             tint = if (playerState.isRepeating) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (playerState.isRepeating) "مكرر" else "تكرار",
-                            fontSize = 12.sp,
+                            text = if (playerState.isRepeating) "مُكرَّر ✅" else "تكرار",
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (playerState.isRepeating) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // Replay 10s
+                // Replay 10s button
                 IconButton(
                     onClick = {
                         val newPos = (playerState.currentPositionMs - 10000).coerceAtLeast(0)
                         onSeek(newPos)
                     },
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier
+                        .size(46.dp)
+                        .testTag("btn_replay_10")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Replay10,
                         contentDescription = "تأخير 10 ثواني",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
-                // Main Play / Pause Button (زر التشغيل والإيقاف المؤقت)
-                Box(
-                    modifier = Modifier
-                        .size(62.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(EmeraldSecondary, EmeraldPrimary)
+                // Main Play / Pause Button (زر التشغيل والإيقاف المؤقت الرئيسي)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable {
+                        if (isPlaying) onPause() else onPlay()
+                    }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(66.dp)
+                            .shadow(6.dp, CircleShape)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(EmeraldSecondary, EmeraldPrimary, EmeraldDark)
+                                )
                             )
-                        )
-                        .clickable {
-                            if (isPlaying) onPause() else onPlay()
-                        }
-                        .testTag("btn_play_pause"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "إيقاف مؤقت" else "تشغيل",
-                        tint = Color.White,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-
-                // Stop / Turn Off Button (زر الإطفاء والإيقاف التام)
-                Surface(
-                    onClick = onStop,
-                    shape = RoundedCornerShape(12.dp),
-                    color = ErrorRed.copy(alpha = 0.12f),
-                    modifier = Modifier.testTag("btn_stop")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .border(2.dp, GoldPrimary.copy(alpha = 0.7f), CircleShape)
+                            .testTag("btn_play_pause"),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = "إطفاء / إيقاف كامل",
-                            tint = ErrorRed,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "إطفاء",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ErrorRed
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "إيقاف مؤقت" else "تشغيل التلاوة",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = if (isPlaying) "إيقاف مؤقت" else "تشغيل",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldDark
+                    )
                 }
 
-                // Forward 10s
+                // Forward 10s button
                 IconButton(
                     onClick = {
                         val newPos = (playerState.currentPositionMs + 10000).coerceAtMost(playerState.durationMs)
                         onSeek(newPos)
                     },
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier
+                        .size(46.dp)
+                        .testTag("btn_forward_10")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Forward10,
                         contentDescription = "تقديم 10 ثواني",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
                     )
+                }
+
+                // زر الإيقاف التام (Stop / Turn Off button ⏹)
+                Surface(
+                    onClick = onStop,
+                    shape = RoundedCornerShape(14.dp),
+                    color = ErrorRed.copy(alpha = 0.12f),
+                    border = BorderStroke(1.2.dp, ErrorRed.copy(alpha = 0.35f)),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.testTag("btn_stop")
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = "إيقاف كامل للتلاوة",
+                            tint = ErrorRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "إيقاف ⏹",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ErrorRed
+                        )
+                    }
                 }
             }
 
@@ -664,15 +703,16 @@ fun QuranPlayerControls(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 4 Icon buttons for Tafsir sources (الميزان، مجمع البيان، الأمثل، الميسر)
+            // 5 Icon buttons for Tafsir sources (الميزان، التبيان، مجمع البيان، الأمثل، الميسر)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TafsirBook.values().forEach { book ->
                     val isBookSelected = selectedTafsirBook == book
                     val (icon, tag) = when (book) {
                         TafsirBook.AL_MIZAN -> Pair(Icons.Default.Balance, "btn_player_tafsir_al_mizan")
+                        TafsirBook.AL_TIBYAN -> Pair(Icons.Default.School, "btn_player_tafsir_al_tibyan")
                         TafsirBook.MAJMA_AL_BAYAN -> Pair(Icons.Default.AutoStories, "btn_player_tafsir_majma_al_bayan")
                         TafsirBook.AL_AMTHAL -> Pair(Icons.Default.Lightbulb, "btn_player_tafsir_al_amthal")
                         TafsirBook.MUYASSAR -> Pair(Icons.Default.MenuBook, "btn_player_tafsir_muyassar")
@@ -693,18 +733,24 @@ fun QuranPlayerControls(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                            modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
                         ) {
                             Icon(
                                 imageVector = icon,
                                 contentDescription = book.shortTitle,
                                 tint = if (isBookSelected) Color.White else EmeraldPrimary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(17.dp)
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = book.shortTitle,
-                                fontSize = 10.sp,
+                                text = when (book) {
+                                    TafsirBook.AL_MIZAN -> "الميزان"
+                                    TafsirBook.AL_TIBYAN -> "التبيان"
+                                    TafsirBook.MAJMA_AL_BAYAN -> "مجمع البيان"
+                                    TafsirBook.AL_AMTHAL -> "الأمثل"
+                                    TafsirBook.MUYASSAR -> "الميسر"
+                                },
+                                fontSize = 9.sp,
                                 fontWeight = if (isBookSelected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (isBookSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,

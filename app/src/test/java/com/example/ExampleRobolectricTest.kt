@@ -377,4 +377,138 @@ class ExampleRobolectricTest {
         // Verify seek call executes without exception
         assertNotNull(viewModel.playerState.value)
     }
+
+    @Test
+    fun `verify calculateAyahProgress visual indicator math for Al-Fatihah`() {
+        val fatihah = QuranDataProvider.surahs.first { it.id == "001" }
+        assertEquals(7, fatihah.ayahs.size)
+
+        val totalDurationMs = 35_000 // 35 seconds total surah recitation
+
+        // At 0 ms (start of Surah), should be Ayah 1
+        val progress0 = com.example.ui.components.calculateAyahProgress(fatihah, 0, totalDurationMs)
+        assertEquals(1, progress0.ayahNumber)
+        assertEquals(0, progress0.ayahIndex)
+        assertEquals(7, progress0.totalAyahs)
+        assertTrue(progress0.ayah.text.contains("بِسْمِ اللَّهِ"))
+        assertEquals(0f, progress0.progressFraction, 0.01f)
+        assertNotNull(progress0.nextAyahStartMs)
+        assertTrue(progress0.nextAyahStartMs!! > 0)
+
+        // Advance to next ayah
+        val nextStart = progress0.nextAyahStartMs!!
+        val progress1 = com.example.ui.components.calculateAyahProgress(fatihah, nextStart + 500, totalDurationMs)
+        assertEquals(2, progress1.ayahNumber)
+        assertEquals(1, progress1.ayahIndex)
+        assertTrue(progress1.ayah.text.contains("الْحَمْدُ لِلَّهِ"))
+        assertTrue("Progress fraction in Ayah 2 should be > 0", progress1.progressFraction > 0f)
+
+        // Near end of surah (last verse)
+        val progressLast = com.example.ui.components.calculateAyahProgress(fatihah, totalDurationMs - 500, totalDurationMs)
+        assertEquals(7, progressLast.ayahNumber)
+        assertEquals(6, progressLast.ayahIndex)
+        assertTrue(progressLast.ayah.text.contains("صِرَاطَ الَّذِينَ"))
+        assertTrue(progressLast.progressFraction > 0.8f)
+    }
+
+    @Test
+    fun `verify clear buttons logic for Play, Stop, and Repeat`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = QuranViewModel(app)
+
+        // Verify initial repeat state is false
+        assertEquals(false, viewModel.playerState.value.isRepeating)
+
+        // Toggle repeat -> true
+        viewModel.toggleRepeat()
+        assertEquals(true, viewModel.playerState.value.isRepeating)
+
+        // Toggle repeat -> false
+        viewModel.toggleRepeat()
+        assertEquals(false, viewModel.playerState.value.isRepeating)
+
+        // Stop resets playback cleanly
+        viewModel.stopSurah()
+        assertEquals(com.example.audio.PlaybackStatus.STOPPED, viewModel.playerState.value.status)
+        assertEquals(0, viewModel.playerState.value.currentPositionMs)
+    }
+
+    @Test
+    fun `verify DailyReminderManager scheduling, persistence and notification dispatch`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // Test persistence of enabled state
+        com.example.reminder.DailyReminderManager.setReminderEnabled(context, true)
+        assertTrue(com.example.reminder.DailyReminderManager.isReminderEnabled(context))
+
+        // Test persistence of custom reminder time (e.g. 05:30)
+        com.example.reminder.DailyReminderManager.setReminderTime(context, 5, 30)
+        val time = com.example.reminder.DailyReminderManager.getReminderTime(context)
+        assertEquals(5, time.first)
+        assertEquals(30, time.second)
+
+        // Test channel creation and immediate test notification
+        com.example.reminder.DailyReminderManager.createNotificationChannel(context)
+        com.example.reminder.DailyReminderManager.sendImmediateTestNotification(context)
+
+        // Disable reminder
+        com.example.reminder.DailyReminderManager.setReminderEnabled(context, false)
+        assertEquals(false, com.example.reminder.DailyReminderManager.isReminderEnabled(context))
+    }
+
+    @Test
+    fun `verify interactive phonics spelling pronunciation methods in ViewModel`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = QuranViewModel(app)
+
+        // Test pronouncing single letter/word
+        viewModel.pronounceSpelling("قَ")
+        // Verify method call succeeds without exception
+
+        // Test pronouncing sequence
+        viewModel.pronounceSpellingSequence(listOf("قَ", "رَ", "قَرَ", "قَرَأَ"))
+
+        // Test stopping
+        viewModel.stopSpellingPronunciation()
+        assertNotNull(viewModel.spellingPronounceManager)
+    }
+
+    @Test
+    fun `verify Interactive Mushaf actions and bookmarking in ViewModel`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = QuranViewModel(app)
+
+        val fatiha = com.example.data.datasource.QuranDataProvider.surahs.first { it.id == "001" }
+        viewModel.selectSurah(fatiha)
+
+        // Test mode change
+        viewModel.setMushafDisplayMode(com.example.ui.components.MushafDisplayMode.CONTINUOUS_PAGE)
+        assertEquals(com.example.ui.components.MushafDisplayMode.CONTINUOUS_PAGE, viewModel.uiState.value.mushafDisplayMode)
+
+        viewModel.setMushafDisplayMode(com.example.ui.components.MushafDisplayMode.DETAILED_CARDS)
+        assertEquals(com.example.ui.components.MushafDisplayMode.DETAILED_CARDS, viewModel.uiState.value.mushafDisplayMode)
+
+        // Test interactive ayah selection
+        val ayah3 = fatiha.ayahs[2]
+        viewModel.selectInteractiveAyah(ayah3)
+        assertEquals(3, viewModel.uiState.value.selectedInteractiveAyah?.numberInSurah)
+
+        // Test Ayah playback
+        viewModel.playAyahRecitation(ayah3)
+        assertEquals(3, viewModel.uiState.value.activeAyahHighlight)
+        assertTrue(viewModel.uiState.value.isAyahAudioPlaying)
+
+        // Test bookmarking
+        viewModel.bookmarkAyah("001", 3)
+        assertEquals("001", viewModel.uiState.value.bookmarkedSurahId)
+        assertEquals(3, viewModel.uiState.value.bookmarkedAyahNumber)
+
+        // Test jumping to bookmark
+        viewModel.jumpToBookmarkedAyah()
+        assertEquals(3, viewModel.uiState.value.activeAyahHighlight)
+
+        // Test filter query
+        viewModel.setSurahFilterQuery("الرَّحْمَٰنِ")
+        assertEquals("الرَّحْمَٰنِ", viewModel.uiState.value.surahFilterQuery)
+    }
 }

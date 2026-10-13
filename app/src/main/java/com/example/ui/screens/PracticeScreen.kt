@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
@@ -404,6 +405,7 @@ fun PracticeScreen(
                                             ) {
                                                 val selectedIcon = when (practiceTafsirBook) {
                                                     TafsirBook.AL_MIZAN -> Icons.Default.Balance
+                                                    TafsirBook.AL_TIBYAN -> Icons.Default.School
                                                     TafsirBook.MAJMA_AL_BAYAN -> Icons.Default.AutoStories
                                                     TafsirBook.AL_AMTHAL -> Icons.Default.Lightbulb
                                                     TafsirBook.MUYASSAR -> Icons.Default.MenuBook
@@ -429,6 +431,7 @@ fun PracticeScreen(
                                                 val isSelected = practiceTafsirBook == book
                                                 val bookIcon = when (book) {
                                                     TafsirBook.AL_MIZAN -> Icons.Default.Balance
+                                                    TafsirBook.AL_TIBYAN -> Icons.Default.School
                                                     TafsirBook.MAJMA_AL_BAYAN -> Icons.Default.AutoStories
                                                     TafsirBook.AL_AMTHAL -> Icons.Default.Lightbulb
                                                     TafsirBook.MUYASSAR -> Icons.Default.MenuBook
@@ -456,6 +459,7 @@ fun PracticeScreen(
                                                         Text(
                                                             text = when (book) {
                                                                 TafsirBook.AL_MIZAN -> "الميزان"
+                                                                TafsirBook.AL_TIBYAN -> "التبيان"
                                                                 TafsirBook.MAJMA_AL_BAYAN -> "مجمع البيان"
                                                                 TafsirBook.AL_AMTHAL -> "الأمثل"
                                                                 TafsirBook.MUYASSAR -> "الميسر"
@@ -489,6 +493,9 @@ fun PracticeScreen(
                                     val practiceText = when (practiceTafsirBook) {
                                         TafsirBook.AL_MIZAN -> currentAyah.tafsirAlMizan.ifBlank {
                                             "في «تفسير الميزان» للعلامة الطباطبائي (قدس سره): تحليل قرآني عميق يفسر القرآن بالقرآن في إيضاح معاني التوحيد والحقائق الإيمانية للآية (${currentAyah.numberInSurah})."
+                                        }
+                                        TafsirBook.AL_TIBYAN -> currentAyah.tafsirAlTibyan.ifBlank {
+                                            "في «التبيان في تفسير القرآن» لشيخ الطائفة أبي جعفر محمد بن الحسن الطوسي (قدس سره): بيان جامع لمعاني الكلمات وأوجه الإعراب والقراءات ودلالاتها البلاغية والتشريعية في الآية (${currentAyah.numberInSurah})."
                                         }
                                         TafsirBook.MAJMA_AL_BAYAN -> currentAyah.tafsirMajmaAlBayan.ifBlank { currentAyah.tafsirAlAmthal.ifBlank { currentAyah.tafsir } }
                                         TafsirBook.AL_AMTHAL -> currentAyah.tafsirAlAmthal.ifBlank { currentAyah.tafsir }
